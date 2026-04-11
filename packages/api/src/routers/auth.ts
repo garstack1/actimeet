@@ -18,6 +18,8 @@ const registerSchema = z.object({
   gender: z.enum(["male", "female", "non_binary", "prefer_not_to_say"]).optional(),
   city: z.string().optional(),
   countryCode: z.string().length(2).optional(),
+  photos: z.array(z.string()).optional(),
+  profilePhotoIndex: z.number().int().min(0).optional(),
 });
 
 const loginSchema = z.object({
@@ -33,6 +35,8 @@ const updateProfileSchema = z.object({
   showExactAge: z.boolean().optional(),
   city: z.string().optional(),
   countryCode: z.string().length(2).optional(),
+  photos: z.array(z.string()).optional(),
+  profilePhotoIndex: z.number().int().min(0).optional(),
 });
 
 /**

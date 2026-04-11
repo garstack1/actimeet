@@ -21,22 +21,27 @@ export default function ProfilePage() {
     showExactAge: false,
   });
 
-  const { data: user, isLoading, refetch } = trpc.auth.me.useQuery(undefined, {
+  const utils = trpc.useUtils();
+
+  const { data: user, isLoading } = trpc.auth.me.useQuery(undefined, {
     retry: false,
-    onError: () => {
-      router.push("/login");
-    },
   });
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [isLoading, user, router]);
 
   const updateProfile = trpc.auth.updateProfile.useMutation({
     onSuccess: (data) => {
       const stored = localStorage.getItem("user");
       if (stored) {
-        const user = JSON.parse(stored);
-        localStorage.setItem("user", JSON.stringify({ ...user, ...data }));
+        const u = JSON.parse(stored);
+        localStorage.setItem("user", JSON.stringify({ ...u, ...data }));
       }
       setIsEditing(false);
-      refetch();
+      utils.auth.me.invalidate();
     },
     onError: (err) => {
       alert(err.message);
@@ -68,12 +73,12 @@ export default function ProfilePage() {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
 
       const res = await fetch("/api/upload", {
         method: "POST",
-        body: formData,
+        body: fd,
       });
 
       if (!res.ok) {
@@ -82,7 +87,11 @@ export default function ProfilePage() {
       }
 
       const { url } = await res.json();
-      setPhotos([...photos, url]);
+      const newPhotos = [...photos, url];
+      setPhotos(newPhotos);
+      
+      // Auto-save photos immediately
+      updateProfile.mutate({ photos: newPhotos });
     } catch (error) {
       alert(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -91,7 +100,10 @@ export default function ProfilePage() {
   };
 
   const removePhoto = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index));
+    const newPhotos = photos.filter((_, i) => i !== index);
+    setPhotos(newPhotos);
+    // Auto-save
+    updateProfile.mutate({ photos: newPhotos });
   };
 
   const setMainPhoto = (index: number) => {
@@ -99,11 +111,16 @@ export default function ProfilePage() {
     const [photo] = newPhotos.splice(index, 1);
     newPhotos.unshift(photo);
     setPhotos(newPhotos);
+    // Auto-save
+    updateProfile.mutate({ photos: newPhotos });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile.mutate(formData);
+    updateProfile.mutate({
+      ...formData,
+      photos,
+    });
   };
 
   const calculateAge = (dob: string) => {
@@ -136,7 +153,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="border-b bg-white">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -211,6 +227,7 @@ export default function ProfilePage() {
               onChange={handlePhotoUpload}
               className="hidden"
             />
+            <p className="text-xs text-gray-500 mt-3">Photos are saved automatically</p>
           </div>
 
           {/* Profile Info */}
