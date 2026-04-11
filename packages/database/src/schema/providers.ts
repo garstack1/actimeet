@@ -7,7 +7,6 @@ import {
   timestamp,
   integer,
   decimal,
-  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users.js";
@@ -61,9 +60,9 @@ export const providers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => ({
-    idx_providers_user_id: index("idx_providers_user_id").on(table.userId),
-    idx_providers_verification_status: index("idx_providers_verification_status").on(table.verificationStatus),
-    idx_providers_stripe_account: index("idx_providers_stripe_account").on(table.stripeAccountId),
+    userIdIdx: index("idx_providers_user_id").on(table.userId),
+    verificationStatusIdx: index("idx_providers_verification_status").on(table.verificationStatus),
+    stripeAccountIdx: index("idx_providers_stripe_account").on(table.stripeAccountId),
   })
 );
 
@@ -87,10 +86,8 @@ export const venues = pgTable(
     postcode: varchar("postcode", { length: 20 }),
     countryCode: varchar("country_code", { length: 2 }).notNull().default("IE"),
 
-    // Geolocation - stored as text since Drizzle doesn't have native PostGIS support
-    // We'll use raw SQL for geo queries
-    latitude: decimal("latitude", { precision: 10, scale: 7 }),
-    longitude: decimal("longitude", { precision: 10, scale: 7 }),
+    // Note: location is a PostGIS geography column - we'll use raw SQL for geo queries
+    // Not included here as Drizzle doesn't have native PostGIS support
 
     // Facilities
     facilities: text("facilities").array().default(sql`'{}'`),
@@ -106,10 +103,12 @@ export const venues = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => ({
-    idx_venues_provider_id: index("idx_venues_provider_id").on(table.providerId),
-    idx_venues_city: index("idx_venues_city").on(table.city),
+    providerIdIdx: index("idx_venues_provider_id").on(table.providerId),
+    cityIdx: index("idx_venues_city").on(table.city),
   })
 );
+
+import { index } from "drizzle-orm/pg-core";
 
 export type Provider = typeof providers.$inferSelect;
 export type NewProvider = typeof providers.$inferInsert;
