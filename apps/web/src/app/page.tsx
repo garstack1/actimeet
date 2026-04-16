@@ -34,6 +34,9 @@ export default function Home() {
             <nav className="flex items-center gap-4">
               {user ? (
                 <>
+                  <Link href="/messages" className="text-gray-600 hover:text-gray-900 font-medium">
+                    Messages
+                  </Link>
                   <Link href="/my-tickets" className="text-gray-600 hover:text-gray-900 font-medium">
                     My Tickets
                   </Link>
