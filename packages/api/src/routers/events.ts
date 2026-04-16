@@ -12,9 +12,8 @@ import {
   eventSessions,
   venues,
   providers,
-  tickets,
 } from "@actimeet/database";
-import { eq, and, gte, desc, sql, ilike, or } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 
 // Validation schemas
 const createEventSchema = z.object({
@@ -25,32 +24,22 @@ const createEventSchema = z.object({
   category: z.enum(["dance", "sports", "music", "hobbies", "wellness", "other"]),
   activityType: z.string().min(2).max(100),
   tags: z.array(z.string()).optional(),
-
-  // Gender config
   genderMode: z.enum(["mixed", "same_gender", "open"]),
   maleCapacity: z.number().int().positive().optional(),
   femaleCapacity: z.number().int().positive().optional(),
   totalCapacity: z.number().int().positive().optional(),
   orientation: z.enum(["gay", "lesbian", "queer", "all"]).optional(),
-
-  // Age
   minAge: z.number().int().min(12).max(100).optional(),
   maxAge: z.number().int().min(12).max(100).optional(),
-
-  // Pricing (in cents)
   priceCents: z.number().int().min(0),
   malePriceCents: z.number().int().min(0).optional(),
   femalePriceCents: z.number().int().min(0).optional(),
-
-  // Refund policy
   refundPolicy: z.enum(["flexible", "moderate", "strict", "credit_only", "none"]).optional(),
   refundDaysBefore: z.number().int().min(0).optional(),
-
-  // Sessions
   sessions: z.array(
     z.object({
-      sessionDate: z.string(), // ISO date string
-      startTime: z.string(), // HH:MM format
+      sessionDate: z.string(),
+      startTime: z.string(),
       endTime: z.string(),
     })
   ).min(1),
@@ -63,7 +52,7 @@ const searchEventsSchema = z.object({
   countryCode: z.string().length(2).optional(),
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
-  limit: z.number().int().min(1).max(50).default(20),
+  limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
 });
 
@@ -82,8 +71,26 @@ export const eventsRouter = router({
         eq(events.isCancelled, false),
       ];
 
+      // Category filter
       if (input.category) {
         conditions.push(eq(events.category, input.category));
+      }
+
+      // City filter
+      if (input.city) {
+        conditions.push(eq(venues.city, input.city));
+      }
+
+      // Search query (search in title and short description)
+      if (input.query && input.query.trim()) {
+        const searchTerm = `%${input.query.trim()}%`;
+        conditions.push(
+          or(
+            ilike(events.title, searchTerm),
+            ilike(events.shortDescription, searchTerm),
+            ilike(events.activityType, searchTerm)
+          )!
+        );
       }
 
       // Build query
@@ -183,7 +190,6 @@ export const eventsRouter = router({
         sessions,
         provider,
         availableSlots,
-        // Hide attendee list for non-logged-in users
         canSeeAttendees: !!ctx.user,
       };
     }),
@@ -381,8 +387,6 @@ export const eventsRouter = router({
           message: "Event not found",
         });
       }
-
-      // TODO: Check listing fee is paid
 
       await db
         .update(events)
